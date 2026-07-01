@@ -41,14 +41,16 @@ def transcribe_audio_to_srt(
     model_name: str = "medium",
     language: str = "pt",
     verbose: bool = True,
+    translate: bool = False,
 ) -> None:
     whisper = _import_whisper()
 
     print(f"Carregando modelo Whisper: {model_name}…")
     model = whisper.load_model(model_name)
 
+    task = "translate" if translate else "transcribe"
     print(f"Transcrevendo áudio: {audio_path}")
-    result = model.transcribe(str(audio_path), verbose=verbose, language=language)
+    result = model.transcribe(str(audio_path), verbose=verbose, language=language, task=task)
 
     print(f"Gravando SRT em: {srt_path}")
     with srt_path.open("w", encoding="utf-8") as f:
@@ -78,6 +80,7 @@ def transcribe_from_video(
     ar: int = 16000,
     audio_out: Path | None = None,
     keep_audio: bool = False,
+    translate: bool = False,
 ) -> Path:
     if srt_path is None:
         srt_path = video_path.with_suffix(".srt")
@@ -87,7 +90,7 @@ def transcribe_from_video(
     print(f"Extraindo áudio → {audio_out}")
     extract_audio(video_path, audio_out, overwrite=overwrite, ac=ac, ar=ar)
 
-    transcribe_audio_to_srt(audio_out, srt_path, model_name=model_name, language=language)
+    transcribe_audio_to_srt(audio_out, srt_path, model_name=model_name, language=language, translate=translate)
 
     if not keep_audio and audio_out.exists():
         try:
@@ -141,6 +144,7 @@ def run_cli(argv: list[str]) -> int:
     p_srt.add_argument("--ar", type=int, default=16000, help="Sample rate do áudio (Hz)")
     p_srt.add_argument("--ac", type=int, default=1, help="Canais de áudio (1=mono, 2=stereo)")
     p_srt.add_argument("--keep-audio", action="store_true", help="Manter arquivo de áudio extraído")
+    p_srt.add_argument("--translate", action="store_true", help="Traduzir para inglês (Whisper task=translate)")
 
     # burn: apenas embutir uma legenda existente
     p_burn = subparsers.add_parser("burn", help="Embutir SRT em um vídeo")
@@ -156,6 +160,7 @@ def run_cli(argv: list[str]) -> int:
     p_both.add_argument("--ar", type=int, default=16000, help="Sample rate do áudio (Hz)")
     p_both.add_argument("--ac", type=int, default=1, help="Canais de áudio (1=mono, 2=stereo)")
     p_both.add_argument("--keep-audio", action="store_true", help="Manter arquivo de áudio extraído")
+    p_both.add_argument("--translate", action="store_true", help="Traduzir para inglês (Whisper task=translate)")
 
     args = parser.parse_args(argv)
 
@@ -177,6 +182,7 @@ def run_cli(argv: list[str]) -> int:
             ar=args.ar,
             audio_out=args.audio_out,
             keep_audio=args.keep_audio,
+            translate=args.translate,
         )
         print(f"✅ Legenda gerada: {srt}")
         return 0
@@ -197,6 +203,7 @@ def run_cli(argv: list[str]) -> int:
             ac=args.ac,
             ar=args.ar,
             keep_audio=args.keep_audio,
+            translate=args.translate,
         )
         out_path = burn_subtitles(video_path, srt, args.out, overwrite=overwrite)
         print(f"✅ Vídeo com legenda embutida: {out_path}")
